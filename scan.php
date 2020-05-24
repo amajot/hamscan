@@ -2,20 +2,18 @@
 include "simple_html_dom.php";
 include "sites/QTH/scan.php";
 include "sites/QRZ/scan.php";
-include "sites/eham/scan.php";
 
 $timeframe = 1; //hours
 
 //get the list of search terms, ingest them into an array:
-$searchTerms = file('searchTerms.txt', FILE_IGNORE_NEW_LINES);
+$searchTerms = file(__DIR__ . '/searchTerms.txt', FILE_IGNORE_NEW_LINES);
 
 //iterate through each site's scan file and pass search terms into it
 $qthResults = qth_scan($searchTerms, $timeframe);
-$eHamResults = eham_scan($searchTerms, $timeframe);
 $qrzResults = qrz_scan($searchTerms, $timeframe);
 
 
-$combinedResults = array_merge($qthResults, $eHamResults, $qrzResults);
+$combinedResults = array_merge($qthResults, $qrzResults);
 
 //generate email report
 if(sizeof($combinedResults) > 0){

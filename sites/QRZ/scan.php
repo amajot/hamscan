@@ -3,6 +3,10 @@
 function qrz_scan($searchTerms, $timeframe){
 		$URL = "https://forums.qrz.com/index.php?forums/ham-radio-gear-for-sale.7.rss";
 
+
+		$qrz_RSS = get_web_page($URL);
+
+
 		$link = mysql_connect('localhost', 'root', '')
 		or die('Could not connect: ' . mysql_error());
 		mysql_select_db('hamscan') or die('Could not select database');
@@ -11,13 +15,12 @@ function qrz_scan($searchTerms, $timeframe){
 		echo "Running qrz hamScan at " . date("Y-m-d h:i:sa") . "\n";
 
 		// Create DOM from URL or file
-				$html = file_get_html($URL);
+				$html = str_get_html($qrz_RSS["content"]);
 
 			foreach($searchTerms as $term){
 
 				//get list of items
 				foreach($html->find('item') as $item) {
-
 					//checking search term against item
 					if(search_qrz($term, $item)){
 						//get listing title
@@ -30,19 +33,10 @@ function qrz_scan($searchTerms, $timeframe){
 						//get listing ID
 						$listingID = mysql_real_escape_string($parsedURL[count($parsedURL)-1]);
 
-						//get description
-						$encodedContent = $item->find('content:encoded',0)->innertext;					
-						$listingDescription = mysql_real_escape_string((string) simplexml_load_string("<x>$encodedContent</x>"));
-
 						//add to database if its new!
 						if(!check_qrz($listingID)){
 							echo "inserting ListingID: " . $listingID . "\n";
-							$query = "INSERT INTO hamScan_qrz (id, search_term, title, description, url) values ($listingID, '$term', '$listingTitle', '$listingDescription', '$listingURL')";
-							$result = mysql_query($query) or die('Query failed: ' . mysql_error());
-						}
-						else if(check_qrz_update($listingID, $listingDescription)){//already exists, but was it updated?
-							echo "updating ListingID: " . $listingID . "\n";
-							$query = "UPDATE hamScan_qrz set description =  '$listingDescription', title = '$title' where id = $listingID";
+							$query = "INSERT INTO hamScan_qrz (id, search_term, title, url) values ($listingID, '$term', '$listingTitle', '$listingURL')";
 							$result = mysql_query($query) or die('Query failed: ' . mysql_error());
 						}
 					}
@@ -98,4 +92,38 @@ function check_qrz_update($id, $description){
 	}
 	return $found;
 
+}
+
+function get_web_page( $url )
+{
+	    $user_agent='Mozilla/5.0 (Windows NT 6.1; rv:8.0) Gecko/20100101 Firefox/8.0';
+
+	        $options = array(
+
+			        CURLOPT_CUSTOMREQUEST  =>"GET",        //set request type post or get
+				CURLOPT_POST           =>false,        //set to GET
+				CURLOPT_USERAGENT      => $user_agent, //set user agent
+				CURLOPT_HTTPHEADER     => array(file_get_contents('/home/pi/qrz_cookie.txt')),
+				CURLOPT_RETURNTRANSFER => true,     // return web page
+				CURLOPT_HEADER         => false,    // don't return headers
+				CURLOPT_FOLLOWLOCATION => true,     // follow redirects
+				CURLOPT_ENCODING       => "",       // handle all encodings
+				CURLOPT_AUTOREFERER    => true,     // set referer on redirect
+				CURLOPT_CONNECTTIMEOUT => 120,      // timeout on connect
+				CURLOPT_TIMEOUT        => 120,      // timeout on response
+				CURLOPT_MAXREDIRS      => 10,       // stop after 10 redirects
+				);
+
+	        $ch      = curl_init( $url );
+	        curl_setopt_array( $ch, $options );
+		    $content = curl_exec( $ch );
+		    $err     = curl_errno( $ch );
+		        $errmsg  = curl_error( $ch );
+		        $header  = curl_getinfo( $ch );
+			    curl_close( $ch );
+
+			    $header['errno']   = $err;
+			        $header['errmsg']  = $errmsg;
+			        $header['content'] = $content;
+				    return $header;
 }
